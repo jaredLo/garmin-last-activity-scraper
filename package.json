@@ -1,0 +1,22 @@
+{
+  "name": "garmin-lambda",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.787.0",
+    "@types/pg": "^8.11.12",
+    "googleapis": "^148.0.0",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.14.1",
+    "postgres": "^3.4.5",
+    "puppeteer": "^24.6.1",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  }
+}
