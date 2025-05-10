@@ -1,18 +1,18 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+// import fs from 'fs';
+// import path from 'path';
+// import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
 import { google } from 'googleapis';
 
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 const GARMIN_EMAIL = process.env.GARMIN_EMAIL || '';
 const GARMIN_PASSWORD = process.env.GARMIN_PASSWORD || '';
-const TARGET_ACTIVITY_TYPE_STRING = 'Pool Swim';
+const GARMIN_TARGET_ACTIVITY_TYPE_STRING = process.env.GARMIN_TARGET_ACTIVITY_TYPE_STRING || 'Pool Swim';
 
 
 async function uploadToGoogleSheets(csv: string, activityDate: string) {
@@ -21,7 +21,7 @@ async function uploadToGoogleSheets(csv: string, activityDate: string) {
 
     const credentials = JSON.parse(Buffer.from(keyBase64, 'base64').toString('utf8'));
 
-    const sheetId = process.env.GOOGLE_SHEET_ID; // You must set this in env
+    const sheetId = process.env.GOOGLE_SHEET_ID; 
 
     if (!credentials || !sheetId) {
         throw new Error('Missing SERVICE_ACCOUNT_KEY or GOOGLE_SHEET_ID');
@@ -97,7 +97,7 @@ puppeteer.use(StealthPlugin());
 
 // I took out decimal laps, it's too confusing imo.
 // but if you prefer to get the decimal intervals too, just take out the wholeLaps variable and replace with laps
-function jsonToCsv(laps: any[]): string {
+function jsonToCsv(laps: any[], activityId: string): string {
     if (!laps || laps.length === 0) {
         console.warn("Lap data (lapDTOs) was null, undefined, or empty.");
         return "No lap data found.";
@@ -224,7 +224,14 @@ function jsonToCsv(laps: any[]): string {
         summary.calories
     ];
 
-    return [headers.join(','), ...rows, summaryRow.join(',')].join('\n');
+    const linkRow = [
+        '""',
+        'Link',
+        `https://connect.garmin.com/modern/activity/${activityId}`,
+        '', '', '', '', '', '', '', '', '', '', '', ''
+    ];
+
+    return [headers.join(','), ...rows, summaryRow.join(','), linkRow.join(',')].join('\n');
 }
 
 
@@ -318,7 +325,7 @@ export const handler = async () => {
 
         console.log('Navigating to activities list...');
         await page.goto('https://connect.garmin.com/modern/activities', { waitUntil: 'networkidle0' });
-        console.log(`Waiting for activities list and searching for "${TARGET_ACTIVITY_TYPE_STRING}"...`);
+        console.log(`Waiting for activities list and searching for "${GARMIN_TARGET_ACTIVITY_TYPE_STRING}"...`);
         await page.waitForSelector('div[class^="ActivityList_activitiesListItems"] a[href*="/activity/"]', { timeout: 30000 });
 
         activityId = await page.evaluate((activityTypeString) => {
@@ -329,13 +336,13 @@ export const handler = async () => {
                 return href ? href.split('/').pop() : null;
             }
             return null;
-        }, TARGET_ACTIVITY_TYPE_STRING);
+        }, GARMIN_TARGET_ACTIVITY_TYPE_STRING);
 
         if (!activityId) {
-            console.error(`No "${TARGET_ACTIVITY_TYPE_STRING}" activity found on the first page.`);
-            throw new Error(`Target activity "${TARGET_ACTIVITY_TYPE_STRING}" not found.`);
+            console.error(`No "${GARMIN_TARGET_ACTIVITY_TYPE_STRING}" activity found on the first page.`);
+            throw new Error(`Target activity "${GARMIN_TARGET_ACTIVITY_TYPE_STRING}" not found.`);
         }
-        console.log(`Found latest "${TARGET_ACTIVITY_TYPE_STRING}" activity ID:`, activityId);
+        console.log(`Found latest "${GARMIN_TARGET_ACTIVITY_TYPE_STRING}" activity ID:`, activityId);
 
         console.log('Closing browser...');
         await browser.close();
@@ -345,7 +352,7 @@ export const handler = async () => {
         console.error('Error during Puppeteer phase:', error);
         if (browser) {
             //@ts-ignore
-            try { await page.setRequestInterception(false); } catch(e) {/* ignore */}
+            try { await page.setRequestInterception(false); } catch(e) {}
             await browser.close();
         }
         return { statusCode: 500, body: JSON.stringify({ message: 'Puppeteer or Header Capture failed', error: error instanceof Error ? error.message : String(error) }) };
@@ -401,24 +408,22 @@ export const handler = async () => {
         }
 
         const data = await response.json() as any;
-        const csv = jsonToCsv(data?.lapDTOs);
+        const csv = jsonToCsv(data?.lapDTOs, activityId);
         if (csv.includes('No lap data found.')) {
             console.warn('API returned data, but no laps (lapDTOs) were found in the response.');
         }
 
 
-        //If you wanna save this locally
-        // const filename = `swim-laps-${activityId}.csv`;
-        // const outputPath = path.resolve(`${__dirname}/splits`, filename);
-        // fs.writeFileSync(outputPath, csv);
-        // console.log(`✅ Successfully saved CSV to ${outputPath}`);
-
-        const activityDate = new Date(data.lapDTOs?.[0]?.startTimeGMT).toISOString().split('T')[0];
+        const activityDate = new Date(data.lapDTOs?.[0]?.startTimeGMT).toLocaleDateString('en-CA');
         await uploadToGoogleSheets(csv, activityDate);
 
         return {
             statusCode: 200,
-            body: JSON.stringify({ message: 'CSV saved successfully' }),
+            body: JSON.stringify({
+                message: 'Processed splits successfully',
+                csv,
+                splits: data.lapDTOs
+            }),
         };
 
     } catch (error) {
