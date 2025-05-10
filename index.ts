@@ -1,14 +1,8 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-// import fs from 'fs';
-// import path from 'path';
-// import { fileURLToPath } from 'url';
 import fetch from 'node-fetch';
 import { google } from 'googleapis';
 
-
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
 
 const GARMIN_EMAIL = process.env.GARMIN_EMAIL || '';
 const GARMIN_PASSWORD = process.env.GARMIN_PASSWORD || '';

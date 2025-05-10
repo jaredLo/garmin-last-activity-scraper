@@ -1,11 +1,6 @@
 GARMIN_EMAIL=your-email
 GARMIN_PASSWORD=your-garmin-passsword
 GARMIN_TARGET_ACTIVITY_TYPE_STRING='Pool Swim'
-AWS_ACCESS_KEY_ID=your_key
-AWS_SECRET_ACCESS_KEY=your_secret
-AWS_REGION=us-east-1
 
-
-#Google
 SERVICE_ACCOUNT_KEY_BASE64=
-GOOGLE_SHEET_ID=
+GOOGLE_SHEET_ID='your-google-sheet-id'
